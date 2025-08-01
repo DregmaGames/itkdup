@@ -142,25 +142,28 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     console.log('Usuario demo creado:', demoUser);
   };
 
-  const checkAuth = async () => {
+    setIsLoading(true);
+    
     try {
-      setIsLoading(true);
-    }
-    // Verificar demo session primero (sincrono)
-    const demoUserData = localStorage.getItem('demoUser');
-    if (demoUserData) {
-      try {
-        const demoUser = JSON.parse(demoUserData);
-        setUser(demoUser);
-        console.log('Demo session restaurada:', demoUser);
-      } catch (error) {
-        console.error('Error parsing demo user:', error);
-        localStorage.removeItem('demoUser');
+      // Verificar demo session primero (sincrono)
+      const demoUserData = localStorage.getItem('demoUser');
+      if (demoUserData) {
+        try {
+          const demoUser = JSON.parse(demoUserData);
+          setUser(demoUser);
+      
+      // Si no hay demo session, verificar Supabase Auth
+      const { data: { session } } = await supabase.auth.getSession();
+      console.log('Supabase session:', session ? 'encontrada' : 'no encontrada');
+      
+      if (session?.user) {
+        const mappedUser = await mapSupabaseUserToUser(session.user);
+        setUser(mappedUser);
+      } else {
         setUser(null);
       }
-    } else {
-      setUser(null);
-      console.log('No hay demo session ni auth session');
+    } finally {
+      setIsLoading(false);
     }
   };
 
