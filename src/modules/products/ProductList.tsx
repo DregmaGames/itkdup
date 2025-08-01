@@ -91,9 +91,6 @@ export const ProductList: React.FC = () => {
           .select('id')
           .eq('user_id', user.id);
         
-        if (consultorData && consultorData.length > 0) {
-          query = query.eq('consultor_id', consultorData[0].id);
-        }
       }
 
       // Apply filters
@@ -103,10 +100,6 @@ export const ProductList: React.FC = () => {
       
       if (filters.cliente_id) {
         query = query.eq('cliente_id', filters.cliente_id);
-      }
-      
-      if (filters.consultor_id) {
-        query = query.eq('consultor_id', filters.consultor_id);
       }
       
       if (filters.fecha_desde) {
@@ -174,8 +167,7 @@ export const ProductList: React.FC = () => {
         .select(`
           id,
           user_profile:user_profiles!consultores_user_id_fkey(name, email)
-        `)
-        .eq('activo', true);
+        `);
 
       // Filter consultores based on user role
       if (user?.role === 'Cert') {
@@ -185,7 +177,7 @@ export const ProductList: React.FC = () => {
           .eq('user_id', user.id);
         
         if (certData && certData.length > 0) {
-          query = query.eq('certificador_id', certData[0].id);
+          consultoresQuery = consultoresQuery.eq('certificador_id', certData[0].id);
         }
       }
 

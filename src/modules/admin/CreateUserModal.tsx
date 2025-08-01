@@ -113,8 +113,7 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
           certificador_id,
           empresa,
           user_profile:user_profiles!consultores_user_id_fkey(name, email)
-        `)
-        .eq('activo', true);
+        `);
 
       if (error) throw error;
       setConsultores(data || []);
