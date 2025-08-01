@@ -141,14 +141,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       setIsLoading(true);
       
-      // Buscar un usuario demo con el rol especificado
+      // Buscar cualquier usuario con el rol especificado
       console.log('Buscando usuario demo con rol:', role);
       
       const { data: profiles, error } = await supabase
         .from('user_profiles')
         .select('*')
         .eq('role', role)
-        .like('email', '%@demo.modularapp.com')
         .limit(1);
 
       if (error) {
@@ -176,8 +175,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         
         // Guardar en localStorage para persistencia temporal
         localStorage.setItem('demo-user', JSON.stringify(demoUser));
+        
+        console.log('Usuario demo logueado exitosamente:', demoUser);
       } else {
-        throw new Error(`No se encontró usuario demo con rol ${role}`);
+        console.log('No se encontró usuario con rol:', role);
+        throw new Error(`No se encontró usuario con rol ${role}. Verifica que existan usuarios en user_profiles.`);
       }
     } catch (error: any) {
       console.error('Error en login directo:', error);
@@ -191,6 +193,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const restoreDemoSession = async () => {
     try {
       const storedUser = localStorage.getItem('demo-user');
+      console.log('Intentando restaurar sesión demo:', storedUser ? 'encontrada' : 'no encontrada');
+      
       if (storedUser) {
         const demoUser = JSON.parse(storedUser);
         
@@ -199,9 +203,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           .from('user_profiles')
           .select('*')
           .eq('id', demoUser.id)
-          .single();
+          .maybeSingle();
 
-        if (!error && profile) {
+        if (profile && !error) {
+          console.log('Usuario demo restaurado:', profile);
           setUser({
             id: profile.id,
             email: profile.email,
@@ -213,10 +218,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           });
         } else {
           // Usuario demo no existe, limpiar localStorage
+          console.log('Usuario demo no existe en BD, limpiando localStorage');
           localStorage.removeItem('demo-user');
+          setUser(null);
         }
       } else {
-        // No hay usuario demo guardado
+        console.log('No hay sesión demo guardada');
         setUser(null);
       }
     } catch (error) {
@@ -232,18 +239,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        console.log('Auth state change:', event, session ? 'with session' : 'no session');
         if (!mounted) return;
         
         try {
           if (session?.user) {
+            console.log('Supabase session found, mapping user...');
             const mappedUser = await mapSupabaseUserToUser(session.user);
             if (mounted) setUser(mappedUser);
           } else {
             // Si no hay sesión de Supabase, intentar restaurar sesión demo
+            console.log('No Supabase session, trying demo session...');
             await restoreDemoSession();
-            if (mounted) {
-              setUser(null);
-            }
           }
         } catch (error) {
           console.error('Error in auth state change:', error);
@@ -261,6 +268,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     // Verificar sesión inicial solo una vez
     const initAuth = async () => {
       try {
+        console.log('Iniciando verificación de auth...');
         if (mounted) {
           await checkAuth();
         }
