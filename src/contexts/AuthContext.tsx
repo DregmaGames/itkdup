@@ -212,9 +212,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           try {
             const mappedUser = await mapSupabaseUserToUser(session.user);
             setUser(mappedUser);
-            }
           } catch (error) {
             console.error('Error mapping user:', error);
+          }
+        }
         // Para logout, no hacer nada aquí, se maneja en logout()
       }
     );
