@@ -142,6 +142,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     console.log('Usuario demo creado:', demoUser);
   };
 
+  const checkAuth = async () => {
     setIsLoading(true);
     
     try {
@@ -151,6 +152,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         try {
           const demoUser = JSON.parse(demoUserData);
           setUser(demoUser);
+          return;
+        } catch (error) {
+          console.error('Error parsing demo user:', error);
+          localStorage.removeItem('demoUser');
+        }
+      }
       
       // Si no hay demo session, verificar Supabase Auth
       const { data: { session } } = await supabase.auth.getSession();
