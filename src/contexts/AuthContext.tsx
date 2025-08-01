@@ -58,7 +58,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       if (error) {
         console.error('Error getting session:', error);
         setUser(null);
-        setIsLoading(false);
         return;
       }
 
@@ -68,9 +67,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       } else {
         // Intentar restaurar sesión demo
         await restoreDemoSession();
-        if (!localStorage.getItem('demo-user')) {
         setUser(null);
-        }
       }
     } catch (error) {
       console.error('Error checking auth:', error);
@@ -214,15 +211,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             created_at: profile.created_at,
             updated_at: profile.updated_at
           });
-          return;
         } else {
           // Usuario demo no existe, limpiar localStorage
           localStorage.removeItem('demo-user');
         }
+      } else {
+        // No hay usuario demo guardado
+        setUser(null);
       }
     } catch (error) {
       console.error('Error restoring demo session:', error);
       localStorage.removeItem('demo-user');
+      setUser(null);
     }
   };
 
@@ -241,7 +241,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           } else {
             // Si no hay sesión de Supabase, intentar restaurar sesión demo
             await restoreDemoSession();
-            if (mounted && !localStorage.getItem('demo-user')) {
+            if (mounted) {
               setUser(null);
             }
           }
@@ -249,18 +249,21 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           console.error('Error in auth state change:', error);
           if (mounted) {
             setUser(null);
+          }
+        } finally {
+          if (mounted) {
             setIsLoading(false);
           }
         }
-        if (mounted) setIsLoading(false);
       }
     );
 
     // Verificar sesión inicial solo una vez
     const initAuth = async () => {
-      if (!mounted) return;
       try {
-        await checkAuth();
+        if (mounted) {
+          await checkAuth();
+        }
       } catch (error) {
         console.error('Error in initial auth check:', error);
         if (mounted) {
