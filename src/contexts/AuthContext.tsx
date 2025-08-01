@@ -70,6 +70,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         await restoreDemoSession();
         if (!localStorage.getItem('demo-user')) {
         setUser(null);
+        }
       }
     } catch (error) {
       console.error('Error checking auth:', error);
@@ -201,9 +202,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           .from('user_profiles')
           .select('*')
           .eq('id', demoUser.id)
-          .maybeSingle();
+          .single();
 
-        if (profile && !error) {
+        if (!error && profile) {
           setUser({
             id: profile.id,
             email: profile.email,
@@ -213,14 +214,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             created_at: profile.created_at,
             updated_at: profile.updated_at
           });
+          return;
         } else {
           // Usuario demo no existe, limpiar localStorage
-          console.log('Demo user not found in database, clearing localStorage');
           localStorage.removeItem('demo-user');
         }
       }
     } catch (error) {
-      console.warn('Error restoring demo session:', error);
+      console.error('Error restoring demo session:', error);
       localStorage.removeItem('demo-user');
     }
   };
@@ -264,7 +265,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         console.error('Error in initial auth check:', error);
         if (mounted) {
           setUser(null);
-        }
           setIsLoading(false);
         }
       }
