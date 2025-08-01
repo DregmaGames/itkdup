@@ -120,45 +120,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       };
       
       const email = emailMap[role];
-      console.log('Buscando usuario demo:', email);
+      const password = 'demo123';
       
-      const { data: profiles, error } = await supabase
-        .from('user_profiles')
-        .select('*')
-        .eq('email', email)
-        .limit(1);
+      console.log('Login directo como:', email);
 
-      if (error) {
-        console.error('Error en consulta:', error);
-        throw error;
-      }
-
-      console.log('Usuarios encontrados:', profiles);
-
-      if (profiles && profiles.length > 0) {
-        const profile = profiles[0];
-        
-        // Crear sesión ficticia para el usuario demo
-        const demoUser: User = {
-          id: profile.id,
-          email: profile.email,
-          role: profile.role,
-          name: profile.name,
-          avatar: profile.avatar,
-          created_at: profile.created_at,
-          updated_at: profile.updated_at
-        };
-
-        setUser(demoUser);
-        
-        // Guardar en localStorage para persistencia temporal
-        localStorage.setItem('demo-user', JSON.stringify(demoUser));
-        
-        console.log('Usuario demo logueado exitosamente:', demoUser);
-      } else {
-        console.log('No se encontró usuario con email:', email);
-        throw new Error(`No se encontró usuario ${email}. Verifica que esté creado en la base de datos.`);
-      }
+      // Usar login real de Supabase Auth
+      await login(email, password);
+      
     } catch (error: any) {
       console.error('Error en login directo:', error);
       throw new Error(error.message || 'Error al acceder como usuario demo');
@@ -174,19 +142,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         const mappedUser = await mapSupabaseUserToUser(session.user);
         setUser(mappedUser);
       } else {
-        // Verificar si hay sesión demo guardada
-        const storedUser = localStorage.getItem('demo-user');
-        if (storedUser) {
-          try {
-            const demoUser = JSON.parse(storedUser);
-            setUser(demoUser);
-          } catch {
-            localStorage.removeItem('demo-user');
-            setUser(null);
-          }
-        } else {
-          setUser(null);
-        }
+        setUser(null);
       }
     } catch (error) {
       console.error('Error checking auth:', error);
@@ -198,18 +154,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   // Escuchar cambios en la autenticación de Supabase
   useEffect(() => {
-    // Verificar estado inicial sin loading
-    const storedUser = localStorage.getItem('demo-user');
-    if (storedUser) {
-      try {
-        const demoUser = JSON.parse(storedUser);
-        console.log('Demo user restored on mount:', demoUser.email, demoUser.role);
-        setUser(demoUser);
-      } catch {
-        localStorage.removeItem('demo-user');
-        setUser(null);
-      }
-    }
+    checkAuth();
     
     // Escuchar cambios de autenticación de Supabase (para login real)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -222,9 +167,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             setUser(mappedUser);
           } catch (error) {
             console.error('Error mapping user:', error);
+            setUser(null);
           }
+        } else {
+          setUser(null);
         }
-        // Para logout, no hacer nada aquí, se maneja en logout()
       }
     );
 
@@ -240,9 +187,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     loginWithOTP,
     sendOTP,
     logout: async () => {
-      localStorage.removeItem('demo-user');
-      setUser(null);
-      await logout();
+      try {
+        const { error } = await supabase.auth.signOut();
+        if (error) throw error;
+        setUser(null);
+      } catch (error) {
+        console.error('Error logging out:', error);
+      }
     },
     checkAuth,
     loginDirect,
