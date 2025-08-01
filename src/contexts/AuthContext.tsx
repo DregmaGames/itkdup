@@ -111,13 +111,21 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // Función para login directo (bypass) - útil para demo
   const loginDirect = async (role: 'Admin' | 'Cert' | 'Consultor' | 'Cliente' = 'Admin') => {
     try {
-      // Buscar cualquier usuario con el rol especificado
-      console.log('Buscando usuario demo con rol:', role);
+      // Mapear rol a email específico
+      const emailMap = {
+        'Admin': 'admin@demo.modularapp.com',
+        'Cert': 'cert@demo.modularapp.com',
+        'Consultor': 'consultor@demo.modularapp.com',
+        'Cliente': 'cliente@demo.modularapp.com'
+      };
+      
+      const email = emailMap[role];
+      console.log('Buscando usuario demo:', email);
       
       const { data: profiles, error } = await supabase
         .from('user_profiles')
         .select('*')
-        .eq('role', role)
+        .eq('email', email)
         .limit(1);
 
       if (error) {
@@ -148,8 +156,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         
         console.log('Usuario demo logueado exitosamente:', demoUser);
       } else {
-        console.log('No se encontró usuario con rol:', role);
-        throw new Error(`No se encontró usuario con rol ${role}`);
+        console.log('No se encontró usuario con email:', email);
+        throw new Error(`No se encontró usuario ${email}. Verifica que esté creado en la base de datos.`);
       }
     } catch (error: any) {
       console.error('Error en login directo:', error);
