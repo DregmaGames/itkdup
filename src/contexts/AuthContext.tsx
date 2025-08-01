@@ -145,14 +145,27 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const checkAuth = async () => {
     setIsLoading(true);
     
+      
+      // Función para validar UUID
+      const isValidUUID = (uuid: string) => {
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+        return uuidRegex.test(uuid);
+      };
+      
     try {
       // Verificar demo session primero (sincrono)
       const demoUserData = localStorage.getItem('demoUser');
       if (demoUserData) {
         try {
           const demoUser = JSON.parse(demoUserData);
-          setUser(demoUser);
-          return;
+          // Validar que el usuario demo tenga un UUID válido
+          if (demoUser.id && isValidUUID(demoUser.id)) {
+            setUser(demoUser);
+            return;
+          } else {
+            console.log('Demo user tiene UUID inválido, limpiando...');
+            localStorage.removeItem('demoUser');
+          }
         } catch (error) {
           console.error('Error parsing demo user:', error);
           localStorage.removeItem('demoUser');
