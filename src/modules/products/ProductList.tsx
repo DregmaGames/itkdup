@@ -89,11 +89,10 @@ export const ProductList: React.FC = () => {
         const { data: consultorData } = await supabase
           .from('consultores')
           .select('id')
-          .eq('user_id', user.id)
-          .single();
+          .eq('user_id', user.id);
         
-        if (consultorData) {
-          query = query.eq('consultor_id', consultorData.id);
+        if (consultorData && consultorData.length > 0) {
+          query = query.eq('consultor_id', consultorData[0].id);
         }
       }
 
@@ -183,11 +182,10 @@ export const ProductList: React.FC = () => {
         const { data: certData } = await supabase
           .from('certificadores')
           .select('id')
-          .eq('user_id', user.id)
-          .single();
+          .eq('user_id', user.id);
         
-        if (certData) {
-          consultoresQuery = consultoresQuery.eq('certificador_id', certData.id);
+        if (certData && certData.length > 0) {
+          query = query.eq('certificador_id', certData[0].id);
         }
       }
 
