@@ -1,5 +1,5 @@
 import React from 'react';
-import { Eye, QrCode, FileText, Award, ExternalLink } from 'lucide-react';
+import { Eye, QrCode, FileText, Award, ExternalLink, Edit, Trash2 } from 'lucide-react';
 import { Product } from '../../../types/products';
 
 interface TableViewProps {

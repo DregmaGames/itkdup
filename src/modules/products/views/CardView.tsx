@@ -1,5 +1,5 @@
 import React from 'react';
-import { Eye, QrCode, FileText, Award, Calendar, Building } from 'lucide-react';
+import { Eye, QrCode, FileText, Award, Calendar, Building, Edit, Trash2, User } from 'lucide-react';
 import { Product } from '../../../types/products';
 
 interface CardViewProps {
