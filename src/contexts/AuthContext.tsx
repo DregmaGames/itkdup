@@ -100,42 +100,59 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const logout = async () => {
     try {
+      // Limpiar demo session
+      localStorage.removeItem('demoUser');
+      
       const { error } = await supabase.auth.signOut();
-      if (error) throw error;
+      if (error) {
+        console.log('Error al cerrar sesión de Supabase (ignorado para demo):', error);
+      }
       setUser(null);
     } catch (error) {
       console.error('Error logging out:', error);
+      setUser(null); // Asegurar logout even if error
     }
   };
 
   // Función para login directo (bypass) - útil para demo
   const loginDirect = async (role: 'Admin' | 'Cert' | 'Consultor' | 'Cliente' = 'Admin') => {
-    try {
-      // Mapear rol a email específico
-      const emailMap = {
-        'Admin': 'admin@demo.modularapp.com',
-        'Cert': 'cert@demo.modularapp.com',
-        'Consultor': 'consultor@demo.modularapp.com',
-        'Cliente': 'cliente@demo.modularapp.com'
-      };
-      
-      const email = emailMap[role];
-      const password = 'demo123';
-      
-      console.log('Login directo como:', email);
-
-      // Usar login real de Supabase Auth
-      await login(email, password);
-      
-    } catch (error: any) {
-      console.error('Error en login directo:', error);
-      throw new Error(error.message || 'Error al acceder como usuario demo');
-    }
+    // Crear usuario demo directamente sin autenticación real
+    const emailMap = {
+      'Admin': 'admin@demo.modularapp.com',
+      'Cert': 'cert@demo.modularapp.com',
+      'Consultor': 'consultor@demo.modularapp.com',
+      'Cliente': 'cliente@demo.modularapp.com'
+    };
+    
+    const email = emailMap[role];
+    const demoUser: User = {
+      id: `demo-${role.toLowerCase()}`,
+      email: email,
+      role: role,
+      name: `Usuario ${role} Demo`,
+      avatar: null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+    
+    setUser(demoUser);
+    localStorage.setItem('demoUser', JSON.stringify(demoUser));
+    console.log('Usuario demo creado:', demoUser);
   };
 
   const checkAuth = async () => {
     try {
       setIsLoading(true);
+      
+      // Verificar demo session primero
+      const demoUserData = localStorage.getItem('demoUser');
+      if (demoUserData) {
+        const demoUser = JSON.parse(demoUserData);
+        setUser(demoUser);
+        console.log('Demo session restaurada:', demoUser);
+        return;
+      }
+      
       const { data: { session } } = await supabase.auth.getSession();
       
       if (session?.user) {
