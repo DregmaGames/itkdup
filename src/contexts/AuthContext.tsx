@@ -49,34 +49,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  const checkAuth = async () => {
-    try {
-      setIsLoading(true);
-      
-      const { data: { session }, error } = await supabase.auth.getSession();
-      
-      if (error) {
-        console.error('Error getting session:', error);
-        setUser(null);
-        return;
-      }
-
-      if (session?.user) {
-        const mappedUser = await mapSupabaseUserToUser(session.user);
-        setUser(mappedUser);
-      } else {
-        // Intentar restaurar sesión demo
-        await restoreDemoSession();
-        setUser(null);
-      }
-    } catch (error) {
-      console.error('Error checking auth:', error);
-      setUser(null);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   const login = async (email: string, password: string) => {
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
@@ -193,7 +165,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const restoreDemoSession = async () => {
     try {
       const storedUser = localStorage.getItem('demo-user');
-      console.log('Intentando restaurar sesión demo:', storedUser ? 'encontrada' : 'no encontrada');
+      console.log('Restoring demo session:', storedUser ? 'found' : 'not found');
       
       if (storedUser) {
         const demoUser = JSON.parse(storedUser);
@@ -203,10 +175,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           .from('user_profiles')
           .select('*')
           .eq('id', demoUser.id)
-          .maybeSingle();
+          .single();
 
-        if (profile && !error) {
-          console.log('Usuario demo restaurado:', profile);
+        if (!error && profile) {
+          console.log('Demo user restored:', profile.email, profile.role);
           setUser({
             id: profile.id,
             email: profile.email,
@@ -216,19 +188,33 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             created_at: profile.created_at,
             updated_at: profile.updated_at
           });
+          return;
         } else {
-          // Usuario demo no existe, limpiar localStorage
-          console.log('Usuario demo no existe en BD, limpiando localStorage');
+          console.log('Demo user not found in DB, clearing localStorage');
           localStorage.removeItem('demo-user');
-          setUser(null);
         }
-      } else {
-        console.log('No hay sesión demo guardada');
-        setUser(null);
       }
+      
+      setUser(null);
     } catch (error) {
       console.error('Error restoring demo session:', error);
       localStorage.removeItem('demo-user');
+      setUser(null);
+    }
+  };
+
+  const checkAuth = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (session?.user) {
+        const mappedUser = await mapSupabaseUserToUser(session.user);
+        setUser(mappedUser);
+      } else {
+        await restoreDemoSession();
+      }
+    } catch (error) {
+      console.error('Error checking auth:', error);
       setUser(null);
     }
   };
@@ -237,51 +223,49 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   useEffect(() => {
     let mounted = true;
     
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        console.log('Auth state change:', event, session ? 'with session' : 'no session');
-        if (!mounted) return;
-        
-        try {
-          if (session?.user) {
-            console.log('Supabase session found, mapping user...');
-            const mappedUser = await mapSupabaseUserToUser(session.user);
-            if (mounted) setUser(mappedUser);
-          } else {
-            // Si no hay sesión de Supabase, intentar restaurar sesión demo
-            console.log('No Supabase session, trying demo session...');
-            await restoreDemoSession();
-          }
-        } catch (error) {
-          console.error('Error in auth state change:', error);
-          if (mounted) {
-            setUser(null);
-          }
-        } finally {
-          if (mounted) {
-            setIsLoading(false);
-          }
-        }
-      }
-    );
-
-    // Verificar sesión inicial solo una vez
+    // Inicialización simple - solo verificar demo session
     const initAuth = async () => {
       try {
-        console.log('Iniciando verificación de auth...');
-        if (mounted) {
-          await checkAuth();
-        }
+        console.log('Checking for existing demo session...');
+        await restoreDemoSession();
       } catch (error) {
-        console.error('Error in initial auth check:', error);
+        console.error('Error in demo session restore:', error);
         if (mounted) {
           setUser(null);
+        }
+      } finally {
+        if (mounted) {
           setIsLoading(false);
         }
       }
     };
     
     initAuth();
+
+    // Escuchar cambios de autenticación de Supabase (para login real)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        console.log('Auth state change:', event);
+        if (!mounted) return;
+        
+        if (session?.user) {
+          try {
+            const mappedUser = await mapSupabaseUserToUser(session.user);
+            if (mounted) {
+              setUser(mappedUser);
+              setIsLoading(false);
+            }
+          } catch (error) {
+            console.error('Error mapping user:', error);
+            if (mounted) {
+              setUser(null);
+              setIsLoading(false);
+            }
+          }
+        }
+        // Para logout, no hacer nada aquí, se maneja en logout()
+      }
+    );
 
     return () => {
       mounted = false;
