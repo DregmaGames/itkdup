@@ -151,8 +151,7 @@ export const ProductList: React.FC = () => {
         .select(`
           user_id,
           user_profile:user_profiles!clientes_user_id_fkey(name, email)
-        `)
-        .eq('activo', true);
+        `);
 
       if (clientesData) {
         setClientes(clientesData.map(c => ({

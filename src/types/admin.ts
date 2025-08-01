@@ -21,11 +21,10 @@ export interface Consultor {
   id: string;
   user_id: string;
   certificador_id?: string;
-  empresa?: string;
-  especialidad?: string;
-  telefono?: string;
-  direccion?: string;
-  activo: boolean;
+  company_name?: string;
+  description?: string;
+  specialties?: string[];
+  contact_info?: any;
   created_at: string;
   updated_at: string;
   // Datos del user_profile
@@ -38,7 +37,7 @@ export interface Consultor {
   // Datos del certificador
   certificador?: {
     id: string;
-    empresa?: string;
+    company_name?: string;
     user_profile?: {
       name?: string;
       email: string;
@@ -50,11 +49,11 @@ export interface Cliente {
   id: string;
   user_id: string;
   consultor_id?: string;
-  empresa?: string;
+  company_name?: string;
   sector?: string;
-  telefono?: string;
-  direccion?: string;
-  activo: boolean;
+  contact_info?: any;
+  address?: string;
+  firma_png_url?: string;
   created_at: string;
   updated_at: string;
   // Datos del user_profile
@@ -67,7 +66,7 @@ export interface Cliente {
   // Datos del consultor
   consultor?: {
     id: string;
-    empresa?: string;
+    company_name?: string;
     user_profile?: {
       name?: string;
       email: string;
@@ -82,15 +81,13 @@ export interface CreateUserFormData {
   email: string;
   name: string;
   role: 'Admin' | 'Cert' | 'Consultor' | 'Cliente';
-  empresa?: string;
-  especialidad?: string;
-  telefono?: string;
-  direccion?: string;
-  // Para clientes
-  cuit?: string;
-  razon_social?: string;
-  nombre_comercial?: string;
+  company_name?: string;
+  description?: string;
+  specialties?: string[];
+  contact_info?: any;
+  address?: string;
   sector?: string;
+  firma_png_url?: string;
   // Relaciones
   certificador_id?: string;
   consultor_id?: string;

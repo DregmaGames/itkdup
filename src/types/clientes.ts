@@ -2,15 +2,11 @@ export interface Cliente {
   id: string;
   user_id: string;
   consultor_id?: string;
-  cuit?: string;
-  razon_social?: string;
-  nombre_comercial?: string;
-  empresa?: string;
+  company_name: string;
   sector?: string;
-  telefono?: string;
-  direccion?: string;
-  avatar?: string;
-  activo: boolean;
+  contact_info?: any;
+  address?: string;
+  firma_png_url?: string;
   created_at: string;
   updated_at: string;
   // Relaciones
@@ -22,7 +18,7 @@ export interface Cliente {
   };
   consultor?: {
     id: string;
-    empresa?: string;
+    company_name?: string;
     user_profile?: {
       name?: string;
       email: string;
@@ -30,38 +26,31 @@ export interface Cliente {
   };
   productos?: Array<{
     id: string;
-    nombre: string;
-    fabricante: string;
-    fecha: string;
+    name: string;
+    brand: string;
+    created_at: string;
     qr_code_url?: string;
-    djc_url?: string;
-    certificado_url?: string;
+    djc_document_url?: string;
+    certificate_url?: string;
   }>;
 }
 
 export interface CreateClienteData {
-  cuit: string;
-  razon_social: string;
-  nombre_comercial?: string;
   email: string;
   name: string;
-  empresa?: string;
+  company_name: string;
   sector?: string;
-  telefono?: string;
-  direccion?: string;
-  avatar?: string;
+  contact_info?: any;
+  address?: string;
+  firma_png_url?: string;
 }
 
 export interface UpdateClienteData {
-  cuit?: string;
-  razon_social?: string;
-  nombre_comercial?: string;
-  empresa?: string;
+  company_name?: string;
   sector?: string;
-  telefono?: string;
-  direccion?: string;
-  avatar?: string;
-  activo?: boolean;
+  contact_info?: any;
+  address?: string;
+  firma_png_url?: string;
 }
 
 export type ClienteViewMode = 'table' | 'cards';
@@ -69,6 +58,5 @@ export type ClienteViewMode = 'table' | 'cards';
 export interface ClienteFilters {
   search: string;
   sector: string;
-  activo: boolean | null;
   consultor_id: string;
 }

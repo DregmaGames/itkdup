@@ -65,7 +65,7 @@ export const ClientesList: React.FC = () => {
           user_profile:user_profiles!clientes_user_id_fkey(*),
           consultor:consultores!clientes_consultor_id_fkey(
             id,
-            empresa,
+            company_name,
             user_profile:user_profiles!consultores_user_id_fkey(name, email)
           ),
           productos(*)
