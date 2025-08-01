@@ -140,14 +140,21 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setIsLoading(true);
       
       // Buscar un usuario demo con el rol especificado
+      console.log('Buscando usuario demo con rol:', role);
+      
       const { data: profiles, error } = await supabase
         .from('user_profiles')
         .select('*')
         .eq('role', role)
-        .like('email', '%demo@modularapp.com')
+        .like('email', '%@demo.modularapp.com')
         .limit(1);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error en consulta:', error);
+        throw error;
+      }
+
+      console.log('Usuarios encontrados:', profiles);
 
       if (profiles && profiles.length > 0) {
         const profile = profiles[0];
