@@ -9,6 +9,15 @@ if (!supabaseUrl || !supabaseAnonKey) {
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
+// Helper function to enable bypassing RLS for demo
+export const bypassRLS = () => {
+  return supabase.rpc('set_config', {
+    setting_name: 'request.jwt.claims',
+    setting_value: JSON.stringify({ role: 'authenticated', sub: 'demo-user' }),
+    is_local: false
+  });
+};
+
 // Database types
 export interface Database {
   public: {

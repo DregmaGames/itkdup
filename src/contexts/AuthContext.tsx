@@ -1,14 +1,7 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { User as SupabaseUser } from '@supabase/supabase-js';
+import { supabase } from '../lib/supabase';
 import { User, AuthContextType } from '../types/auth';
-
-// Simple UUID generation function
-const generateUUID = (): string => {
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-    const r = Math.random() * 16 | 0;
-    const v = c === 'x' ? r : (r & 0x3 | 0x8);
-    return v.toString(16);
-  });
-};
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -28,28 +21,49 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Simular un usuario admin para pruebas
-  const simulateAdminUser = (): User => ({
-    id: generateUUID(),
-    email: 'admin@test.com',
-    role: 'Admin',
-    name: 'Administrador Temporal',
-    avatar: null,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  });
+  const mapSupabaseUserToUser = async (supabaseUser: SupabaseUser): Promise<User | null> => {
+    try {
+      const { data: profile, error } = await supabase
+        .from('user_profiles')
+        .select('*')
+        .eq('id', supabaseUser.id)
+        .single();
+
+      if (error || !profile) {
+        console.error('Error fetching user profile:', error);
+        return null;
+      }
+
+      return {
+        id: profile.id,
+        email: profile.email,
+        role: profile.role,
+        name: profile.name,
+        avatar: profile.avatar,
+        created_at: profile.created_at,
+        updated_at: profile.updated_at
+      };
+    } catch (error) {
+      console.error('Error mapping user:', error);
+      return null;
+    }
+  };
 
   const checkAuth = async () => {
     try {
       setIsLoading(true);
       
-      // Simular un pequeño delay para mostrar el loading
-      await new Promise(resolve => setTimeout(resolve, 500));
+      const { data: { session }, error } = await supabase.auth.getSession();
       
-      // Verificar si ya hay un usuario en localStorage
-      const storedUser = localStorage.getItem('temp-user');
-      if (storedUser) {
-        setUser(JSON.parse(storedUser));
+      if (error) {
+        console.error('Error getting session:', error);
+        setUser(null);
+        return;
+      }
+
+      if (session?.user) {
+        const mappedUser = await mapSupabaseUserToUser(session.user);
+        setUser(mappedUser);
       } else {
         setUser(null);
       }
@@ -62,79 +76,166 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   const login = async (email: string, password: string) => {
-    setIsLoading(true);
     try {
-      // Simular login exitoso
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      let mockUser: User;
-      
-      // Simular diferentes roles según el email
-      if (email.includes('admin')) {
-        mockUser = simulateAdminUser();
-      } else if (email.includes('cert')) {
-        mockUser = {
-          ...simulateAdminUser(),
-          role: 'Cert',
-          email: email,
-          name: 'Certificador Temporal'
-        };
-      } else if (email.includes('consultor')) {
-        mockUser = {
-          ...simulateAdminUser(),
-          role: 'Consultor',
-          email: email,
-          name: 'Consultor Temporal'
-        };
-      } else {
-        mockUser = {
-          ...simulateAdminUser(),
-          role: 'Cliente',
-          email: email,
-          name: 'Cliente Temporal'
-        };
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
+
+      if (error) throw error;
+
+      if (data.user) {
+        const mappedUser = await mapSupabaseUserToUser(data.user);
+        setUser(mappedUser);
       }
-      
-      localStorage.setItem('temp-user', JSON.stringify(mockUser));
-      setUser(mockUser);
-    } catch (error) {
-      setIsLoading(false);
-      throw error;
+    } catch (error: any) {
+      throw new Error(error.message || 'Error al iniciar sesión');
     }
   };
 
   const loginWithOTP = async (email: string, otp: string) => {
-    // Redirigir al login normal para simplificar
-    return login(email, 'temp-password');
+    try {
+      const { data, error } = await supabase.auth.verifyOtp({
+        email,
+        token: otp,
+        type: 'email'
+      });
+
+      if (error) throw error;
+
+      if (data.user) {
+        const mappedUser = await mapSupabaseUserToUser(data.user);
+        setUser(mappedUser);
+      }
+    } catch (error: any) {
+      throw new Error(error.message || 'Error al verificar el código');
+    }
   };
 
   const sendOTP = async (email: string) => {
-    // Simular envío de OTP
-    await new Promise(resolve => setTimeout(resolve, 500));
+    try {
+      const { error } = await supabase.auth.signInWithOtp({
+        email
+      });
+
+      if (error) throw error;
+    } catch (error: any) {
+      throw new Error(error.message || 'Error al enviar el código');
+    }
   };
 
   const logout = async () => {
-    localStorage.removeItem('temp-user');
-    setUser(null);
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+      setUser(null);
+    } catch (error) {
+      console.error('Error logging out:', error);
+    }
   };
 
-  // Función para login directo (bypass)
-  const loginDirect = (role: 'Admin' | 'Cert' | 'Consultor' | 'Cliente' = 'Admin') => {
-    const mockUser: User = {
-      id: generateUUID(),
-      email: `${role.toLowerCase()}@test.com`,
-      role: role,
-      name: `${role} Temporal`,
-      avatar: null,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
-    localStorage.setItem('temp-user', JSON.stringify(mockUser));
-    setUser(mockUser);
+  // Función para login directo (bypass) - útil para demo
+  const loginDirect = async (role: 'Admin' | 'Cert' | 'Consultor' | 'Cliente' = 'Admin') => {
+    try {
+      setIsLoading(true);
+      
+      // Buscar un usuario demo con el rol especificado
+      const { data: profiles, error } = await supabase
+        .from('user_profiles')
+        .select('*')
+        .eq('role', role)
+        .like('email', '%demo@modularapp.com')
+        .limit(1);
+
+      if (error) throw error;
+
+      if (profiles && profiles.length > 0) {
+        const profile = profiles[0];
+        
+        // Crear sesión ficticia para el usuario demo
+        const demoUser: User = {
+          id: profile.id,
+          email: profile.email,
+          role: profile.role,
+          name: profile.name,
+          avatar: profile.avatar,
+          created_at: profile.created_at,
+          updated_at: profile.updated_at
+        };
+
+        setUser(demoUser);
+        
+        // Guardar en localStorage para persistencia temporal
+        localStorage.setItem('demo-user', JSON.stringify(demoUser));
+      } else {
+        throw new Error(`No se encontró usuario demo con rol ${role}`);
+      }
+    } catch (error: any) {
+      console.error('Error en login directo:', error);
+      throw new Error(error.message || 'Error al acceder como usuario demo');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
+  // Función para restaurar sesión demo desde localStorage
+  const restoreDemoSession = async () => {
+    try {
+      const storedUser = localStorage.getItem('demo-user');
+      if (storedUser) {
+        const demoUser = JSON.parse(storedUser);
+        
+        // Verificar que el usuario demo aún existe en la base de datos
+        const { data: profile, error } = await supabase
+          .from('user_profiles')
+          .select('*')
+          .eq('id', demoUser.id)
+          .single();
+
+        if (!error && profile) {
+          setUser({
+            id: profile.id,
+            email: profile.email,
+            role: profile.role,
+            name: profile.name,
+            avatar: profile.avatar,
+            created_at: profile.created_at,
+            updated_at: profile.updated_at
+          });
+          return;
+        } else {
+          // Usuario demo no existe, limpiar localStorage
+          localStorage.removeItem('demo-user');
+        }
+      }
+    } catch (error) {
+      console.error('Error restoring demo session:', error);
+      localStorage.removeItem('demo-user');
+    }
+  };
+
+  // Escuchar cambios en la autenticación de Supabase
   useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (session?.user) {
+          const mappedUser = await mapSupabaseUserToUser(session.user);
+          setUser(mappedUser);
+        } else {
+          // Si no hay sesión de Supabase, intentar restaurar sesión demo
+          await restoreDemoSession();
+          if (!localStorage.getItem('demo-user')) {
+            setUser(null);
+          }
+        }
+        setIsLoading(false);
+      }
+    );
+
+    // Verificar sesión inicial
     checkAuth();
+
+    return () => subscription.unsubscribe();
   }, []);
 
   const value: AuthContextType = {
@@ -143,9 +244,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     login,
     loginWithOTP,
     sendOTP,
-    logout,
+    logout: async () => {
+      localStorage.removeItem('demo-user');
+      await logout();
+    },
     checkAuth,
-    loginDirect, // Añadimos la función de login directo
+    loginDirect,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
