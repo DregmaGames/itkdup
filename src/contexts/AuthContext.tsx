@@ -58,6 +58,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       if (error) {
         console.error('Error getting session:', error);
         setUser(null);
+        setIsLoading(false);
         return;
       }
 
@@ -65,6 +66,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         const mappedUser = await mapSupabaseUserToUser(session.user);
         setUser(mappedUser);
       } else {
+        // Intentar restaurar sesión demo
+        await restoreDemoSession();
+        if (!localStorage.getItem('demo-user')) {
         setUser(null);
       }
     } catch (error) {
@@ -197,9 +201,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           .from('user_profiles')
           .select('*')
           .eq('id', demoUser.id)
-          .single();
+          .maybeSingle();
 
-        if (!error && profile) {
+        if (profile && !error) {
           setUser({
             id: profile.id,
             email: profile.email,
@@ -209,40 +213,69 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             created_at: profile.created_at,
             updated_at: profile.updated_at
           });
-          return;
         } else {
           // Usuario demo no existe, limpiar localStorage
+          console.log('Demo user not found in database, clearing localStorage');
           localStorage.removeItem('demo-user');
         }
       }
     } catch (error) {
-      console.error('Error restoring demo session:', error);
+      console.warn('Error restoring demo session:', error);
       localStorage.removeItem('demo-user');
     }
   };
 
   // Escuchar cambios en la autenticación de Supabase
   useEffect(() => {
+    let mounted = true;
+    
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        if (session?.user) {
-          const mappedUser = await mapSupabaseUserToUser(session.user);
-          setUser(mappedUser);
-        } else {
-          // Si no hay sesión de Supabase, intentar restaurar sesión demo
-          await restoreDemoSession();
-          if (!localStorage.getItem('demo-user')) {
+        if (!mounted) return;
+        
+        try {
+          if (session?.user) {
+            const mappedUser = await mapSupabaseUserToUser(session.user);
+            if (mounted) setUser(mappedUser);
+          } else {
+            // Si no hay sesión de Supabase, intentar restaurar sesión demo
+            await restoreDemoSession();
+            if (mounted && !localStorage.getItem('demo-user')) {
+              setUser(null);
+            }
+          }
+        } catch (error) {
+          console.error('Error in auth state change:', error);
+          if (mounted) {
             setUser(null);
+            setIsLoading(false);
           }
         }
-        setIsLoading(false);
+        if (mounted) setIsLoading(false);
       }
     );
 
-    // Verificar sesión inicial
-    checkAuth();
+    // Verificar sesión inicial solo una vez
+    const initAuth = async () => {
+      if (!mounted) return;
+      try {
+        await checkAuth();
+      } catch (error) {
+        console.error('Error in initial auth check:', error);
+        if (mounted) {
+          setUser(null);
+        }
+          setIsLoading(false);
+        }
+      }
+    };
+    
+    initAuth();
 
-    return () => subscription.unsubscribe();
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   const value: AuthContextType = {
