@@ -145,6 +145,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const checkAuth = async () => {
     try {
       setIsLoading(true);
+    }
     // Verificar demo session primero (sincrono)
     const demoUserData = localStorage.getItem('demoUser');
     if (demoUserData) {
