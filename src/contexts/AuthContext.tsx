@@ -19,7 +19,7 @@ interface AuthProviderProps {
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
 
   const mapSupabaseUserToUser = async (supabaseUser: SupabaseUser): Promise<User | null> => {
     try {
@@ -111,8 +111,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // Función para login directo (bypass) - útil para demo
   const loginDirect = async (role: 'Admin' | 'Cert' | 'Consultor' | 'Cliente' = 'Admin') => {
     try {
-      setIsLoading(true);
-      
       // Buscar cualquier usuario con el rol especificado
       console.log('Buscando usuario demo con rol:', role);
       
@@ -151,124 +149,77 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         console.log('Usuario demo logueado exitosamente:', demoUser);
       } else {
         console.log('No se encontró usuario con rol:', role);
-        throw new Error(`No se encontró usuario con rol ${role}. Verifica que existan usuarios en user_profiles.`);
+        throw new Error(`No se encontró usuario con rol ${role}`);
       }
     } catch (error: any) {
       console.error('Error en login directo:', error);
       throw new Error(error.message || 'Error al acceder como usuario demo');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Función para restaurar sesión demo desde localStorage
-  const restoreDemoSession = async () => {
-    try {
-      const storedUser = localStorage.getItem('demo-user');
-      console.log('Restoring demo session:', storedUser ? 'found' : 'not found');
-      
-      if (storedUser) {
-        const demoUser = JSON.parse(storedUser);
-        
-        // Verificar que el usuario demo aún existe en la base de datos
-        const { data: profile, error } = await supabase
-          .from('user_profiles')
-          .select('*')
-          .eq('id', demoUser.id)
-          .single();
-
-        if (!error && profile) {
-          console.log('Demo user restored:', profile.email, profile.role);
-          setUser({
-            id: profile.id,
-            email: profile.email,
-            role: profile.role,
-            name: profile.name,
-            avatar: profile.avatar,
-            created_at: profile.created_at,
-            updated_at: profile.updated_at
-          });
-          return;
-        } else {
-          console.log('Demo user not found in DB, clearing localStorage');
-          localStorage.removeItem('demo-user');
-        }
-      }
-      
-      setUser(null);
-    } catch (error) {
-      console.error('Error restoring demo session:', error);
-      localStorage.removeItem('demo-user');
-      setUser(null);
     }
   };
 
   const checkAuth = async () => {
     try {
+      setIsLoading(true);
       const { data: { session } } = await supabase.auth.getSession();
       
       if (session?.user) {
         const mappedUser = await mapSupabaseUserToUser(session.user);
         setUser(mappedUser);
       } else {
-        await restoreDemoSession();
+        // Verificar si hay sesión demo guardada
+        const storedUser = localStorage.getItem('demo-user');
+        if (storedUser) {
+          try {
+            const demoUser = JSON.parse(storedUser);
+            setUser(demoUser);
+          } catch {
+            localStorage.removeItem('demo-user');
+            setUser(null);
+          }
+        } else {
+          setUser(null);
+        }
       }
     } catch (error) {
       console.error('Error checking auth:', error);
       setUser(null);
+    } finally {
+      setIsLoading(false);
     }
   };
 
   // Escuchar cambios en la autenticación de Supabase
   useEffect(() => {
-    let mounted = true;
-    
-    // Inicialización simple - solo verificar demo session
-    const initAuth = async () => {
+    // Verificar estado inicial sin loading
+    const storedUser = localStorage.getItem('demo-user');
+    if (storedUser) {
       try {
-        console.log('Checking for existing demo session...');
-        await restoreDemoSession();
-      } catch (error) {
-        console.error('Error in demo session restore:', error);
-        if (mounted) {
-          setUser(null);
-        }
-      } finally {
-        if (mounted) {
-          setIsLoading(false);
-        }
+        const demoUser = JSON.parse(storedUser);
+        console.log('Demo user restored on mount:', demoUser.email, demoUser.role);
+        setUser(demoUser);
+      } catch {
+        localStorage.removeItem('demo-user');
+        setUser(null);
       }
-    };
+    }
     
-    initAuth();
-
     // Escuchar cambios de autenticación de Supabase (para login real)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         console.log('Auth state change:', event);
-        if (!mounted) return;
         
         if (session?.user) {
           try {
             const mappedUser = await mapSupabaseUserToUser(session.user);
-            if (mounted) {
-              setUser(mappedUser);
-              setIsLoading(false);
+            setUser(mappedUser);
             }
           } catch (error) {
             console.error('Error mapping user:', error);
-            if (mounted) {
-              setUser(null);
-              setIsLoading(false);
-            }
-          }
-        }
         // Para logout, no hacer nada aquí, se maneja en logout()
       }
     );
 
     return () => {
-      mounted = false;
       subscription.unsubscribe();
     };
   }, []);
@@ -281,6 +232,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     sendOTP,
     logout: async () => {
       localStorage.removeItem('demo-user');
+      setUser(null);
       await logout();
     },
     checkAuth,
