@@ -101,13 +101,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const logout = async () => {
     try {
       // Limpiar demo session
+      console.log('Cerrando sesión...');
       localStorage.removeItem('demoUser');
       
       const { error } = await supabase.auth.signOut();
       if (error) {
-        console.log('Error al cerrar sesión de Supabase (ignorado para demo):', error);
+        console.log('Error al cerrar sesión de Supabase (ignorado):', error);
       }
       setUser(null);
+      console.log('Sesión cerrada correctamente');
     } catch (error) {
       console.error('Error logging out:', error);
       setUser(null); // Asegurar logout even if error
@@ -143,40 +145,40 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const checkAuth = async () => {
     try {
       setIsLoading(true);
-      
-      // Verificar demo session primero
-      const demoUserData = localStorage.getItem('demoUser');
-      if (demoUserData) {
+    // Verificar demo session primero (sincrono)
+    const demoUserData = localStorage.getItem('demoUser');
+    if (demoUserData) {
+      try {
         const demoUser = JSON.parse(demoUserData);
         setUser(demoUser);
         console.log('Demo session restaurada:', demoUser);
-        return;
-      }
-      
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (session?.user) {
-        const mappedUser = await mapSupabaseUserToUser(session.user);
-        setUser(mappedUser);
-      } else {
+      } catch (error) {
+        console.error('Error parsing demo user:', error);
+        localStorage.removeItem('demoUser');
         setUser(null);
       }
-    } catch (error) {
-      console.error('Error checking auth:', error);
+    } else {
       setUser(null);
-    } finally {
-      setIsLoading(false);
+      console.log('No hay demo session ni auth session');
     }
   };
 
   // Escuchar cambios en la autenticación de Supabase
   useEffect(() => {
+    console.log('AuthProvider: iniciando...');
     checkAuth();
     
     // Escuchar cambios de autenticación de Supabase (para login real)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log('Auth state change:', event);
+        console.log('Auth state change:', event, session ? 'con sesión' : 'sin sesión');
+        
+        // Solo actuar si no hay demo session activa
+        const hasDemoSession = localStorage.getItem('demoUser');
+        if (hasDemoSession) {
+          console.log('Demo session activa, ignorando auth change');
+          return;
+        }
         
         if (session?.user) {
           try {
