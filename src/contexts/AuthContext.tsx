@@ -128,7 +128,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     
     const email = emailMap[role];
     const demoUser: User = {
-      id: `demo-${role.toLowerCase()}`,
+      id: crypto.randomUUID(),
       email: email,
       role: role,
       name: `Usuario ${role} Demo`,
